@@ -1,37 +1,38 @@
 using System.Diagnostics;
-using Serilog;
+using QB_Payments_Lib;
 using QBFC16Lib;
-using static QB_Payments_Test.CommonMethods; 
+using static QB_Payments_Test.CommonMethods;
 
 namespace QB_Payments_Test
 {
     [Collection("Sequential Tests")]
-    public class EndToEndPaymentTests
+    public class PaymentReaderTests
     {
+        // Configuration constants
         private const int CUSTOMER_COUNT = 4;       // We will create 4 customers
         private const int ITEMS_PER_CUSTOMER = 2;   // i.e. 2 * 4 = 8 items total
         private const int INVOICE_COUNT = 4;        // 4 invoices, each with 2 items
-        private const int PAYMENTS_COUNT = 2;       // We'll create 2 payments, each paying 2 invoices
+        private const int PAYMENTS_COUNT = 4;       // We'll create 2 payments, each paying 2 invoices
 
         [Fact]
-        public void CreateAndDelete_Customers_Items_Invoices_Payments()
+        public void CreateAndDelete_Multiple_Customers_Invoices_Payments()
         {
             // Track QuickBooks IDs so we can delete them in finally:
-            var createdCustomerListIDs = new List<string>();
-            var createdItemListIDs = new List<string>();
-            var createdInvoiceTxnIDs = new List<string>();
-            var createdPaymentTxnIDs = new List<string>();
+            List<string> createdCustomerListIDs = new List<string>();
+            List<string> createdItemListIDs = new List<string>();
+            List<string> createdInvoiceTxnIDs = new List<string>();
+            List<string> createdPaymentTxnIDs = new List<string>();
 
             // We'll also track "test data" to assert after queries.
-            var randomCustomerNames = new List<string>();
-            var randomItemNames = new List<string>();
-            var randomItemPrices = new List<double>();
+            List<string> randomCustomerNames = new List<string>();
+            List<string> randomItemNames = new List<string>();
+            List<double> randomItemPrices = new List<double>();
 
-            // Each invoice's test data
-            var invoiceData = new List<InvoiceTestInfo>();
+            // Invoice test data
+            List<InvoiceTestInfo> invoiceData = new List<InvoiceTestInfo>();
 
-            // Each payment's test data
-            var paymentData = new List<PaymentTestInfo>();
+            // Payment test data
+            List<PaymentTestInfo> paymentData = new List<PaymentTestInfo>();
 
             try
             {
@@ -41,65 +42,57 @@ namespace QB_Payments_Test
                 ResetLogger();
 
                 // 2) Create customers
-                using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                for (int i = 0; i < CUSTOMER_COUNT; i++)
                 {
-                    for (int i = 0; i < CUSTOMER_COUNT; i++)
+                    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
                     {
-                        string randomName = "RandCust_" + Guid.NewGuid().ToString("N").Substring(0, 6);
-                        string custListID = AddCustomer(qbSession, randomName);
+                        string randomCustomerName = "RandCust987_" + Guid.NewGuid().ToString("N").Substring(0, 6);
+                        string customerListID = AddCustomer(qbSession, randomCustomerName);
 
-                        createdCustomerListIDs.Add(custListID);
-                        randomCustomerNames.Add(randomName);
+                        randomCustomerNames.Add(randomCustomerName);
+                        createdCustomerListIDs.Add(customerListID);
                     }
                 }
 
-                // 3) Create items (2 * CUSTOMER_COUNT)
-                using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                // 3) Create items
+                for (int i = 0; i < CUSTOMER_COUNT * ITEMS_PER_CUSTOMER; i++)
                 {
-                    for (int i = 0; i < (ITEMS_PER_CUSTOMER * CUSTOMER_COUNT); i++)
+                    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
                     {
-                        string itemName = "RandItem_" + Guid.NewGuid().ToString("N").Substring(0, 6);
-                        double itemPrice = 10.0 + i; // just vary it slightly
+                        string randomItemName = "RandItem987_" + Guid.NewGuid().ToString("N").Substring(0, 6);
+                        double randomItemPrice = 10.0 + (i * 2.5); // Different prices for variety
+                        string itemListID = AddInventoryItem(qbSession, randomItemName, randomItemPrice);
 
-                        string itemListID = AddInventoryItem(qbSession, itemName, itemPrice);
-
+                        randomItemNames.Add(randomItemName);
+                        randomItemPrices.Add(randomItemPrice);
                         createdItemListIDs.Add(itemListID);
-                        randomItemNames.Add(itemName);
-                        randomItemPrices.Add(itemPrice);
                     }
                 }
 
-                // 4) Create invoices 
-                using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                // 4) Create invoices - one invoice per customer, with two line items each
+                for (int i = 0; i < INVOICE_COUNT; i++)
                 {
-                    for (int i = 0; i < INVOICE_COUNT; i++)
+                    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
                     {
-                        // For the i-th invoice, we pick the i-th customer
-                        string custListID = createdCustomerListIDs[i];
-                        string custName = randomCustomerNames[i];
+                        // Get the customer for this invoice (cycling through customers if needed)
+                        int customerIndex = i % CUSTOMER_COUNT;
+                        string customerListID = createdCustomerListIDs[customerIndex];
+                        string customerName = randomCustomerNames[customerIndex];
 
-                        // We'll gather 2 items for this invoice:
-                        // e.g. item indices = (2*i) and (2*i + 1)
-                        int itemIndex1 = 2 * i;
-                        int itemIndex2 = 2 * i + 1;
+                        // Get two items for this invoice
+                        int itemIndex1 = (i * 2) % (CUSTOMER_COUNT * ITEMS_PER_CUSTOMER);
+                        int itemIndex2 = (i * 2 + 1) % (CUSTOMER_COUNT * ITEMS_PER_CUSTOMER);
 
-                        string itemListID1 = createdItemListIDs[itemIndex1];
-                        string itemListID2 = createdItemListIDs[itemIndex2];
-                        string itemName1 = randomItemNames[itemIndex1];
-                        string itemName2 = randomItemNames[itemIndex2];
-                        double itemPrice1 = randomItemPrices[itemIndex1];
-                        double itemPrice2 = randomItemPrices[itemIndex2];
-
-                        // We'll store a "CompanyID" in the invoice memo (e.g. 100+i)
+                        // Store a "CompanyID" in the invoice memo (e.g. 100 + invoice number)
                         int companyID = 100 + i;
 
                         // Create the invoice
                         string invoiceTxnID = AddInvoiceWithTwoLines(
                             qbSession,
-                            custListID,
-                            custName,
-                            itemListID1, itemName1, itemPrice1,
-                            itemListID2, itemName2, itemPrice2,
+                            customerListID,
+                            customerName,
+                            createdItemListIDs[itemIndex1], randomItemNames[itemIndex1], randomItemPrices[itemIndex1],
+                            createdItemListIDs[itemIndex2], randomItemNames[itemIndex2], randomItemPrices[itemIndex2],
                             companyID
                         );
 
@@ -109,89 +102,87 @@ namespace QB_Payments_Test
                         invoiceData.Add(new InvoiceTestInfo
                         {
                             TxnID = invoiceTxnID,
-                            CustomerName = custName,
+                            CustomerName = customerName,
                             CompanyID = companyID,
-                            ItemNames = new List<string> { itemName1, itemName2 },
-                            ItemPrices = new List<double> { itemPrice1, itemPrice2 }
+                            ItemNames = new List<string> { randomItemNames[itemIndex1], randomItemNames[itemIndex2] },
+                            ItemPrices = new List<double> { randomItemPrices[itemIndex1], randomItemPrices[itemIndex2] }
                         });
                     }
                 }
 
-                // 5) Create payments (PAYMENTS_COUNT),
-                //    each payment pays 2 invoices in full.
-                //    For simplicity, Payment #0 pays Invoice #0 and #1;
-                //                    Payment #1 pays Invoice #2 and #3.
-                //    We'll sum up the invoice item prices to get total to pay.
-                using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                // 5) Create payments - each payment covers multiple invoices from the same customer
+                for (int i = 0; i < PAYMENTS_COUNT; i++)
                 {
-                    for (int p = 0; p < PAYMENTS_COUNT; p++)
+                    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
                     {
-                        // The two invoices we want to pay:
-                        int invoiceIndex1 = 2 * p;       // 0, then 2
-                        int invoiceIndex2 = 2 * p + 1;   // 1, then 3
+                        // For simplicity, each payment will pay invoices for a single customer
+                        // Payment 1 pays first half of invoices, Payment 2 pays second half
+                        int startInvoiceIdx = i * (INVOICE_COUNT / PAYMENTS_COUNT);
+                        int endInvoiceIdx = (i + 1) * (INVOICE_COUNT / PAYMENTS_COUNT) - 1;
 
-                        InvoiceTestInfo inv1 = invoiceData[invoiceIndex1];
-                        InvoiceTestInfo inv2 = invoiceData[invoiceIndex2];
+                        // Get the customer for the first invoice in this batch
+                        string customerName = invoiceData[startInvoiceIdx].CustomerName;
 
-                        // The Payment's "CompanyID" = let's do 200 + p
-                        int paymentCompanyID = 200 + p;
+                        // Get all invoices for this customer in the batch
+                        List<string> invoicesToPay = new List<string>();
+                        double totalPaymentAmount = 0;
 
-                        // Payment date = Today
-                        DateTime paymentDate = DateTime.Now.Date;
+                        for (int j = startInvoiceIdx; j <= endInvoiceIdx; j++)
+                        {
+                            if (invoiceData[j].CustomerName == customerName)
+                            {
+                                invoicesToPay.Add(invoiceData[j].TxnID);
+                                // Sum up the invoice amounts
+                                totalPaymentAmount += invoiceData[j].ItemPrices.Sum() * 2; // x2 because quantity=2 in AddInvoiceWithTwoLines
+                            }
+                        }
 
-                        // Sum up the invoice totals. Each invoice has 2 items:
-                        // e.g. inv1 total = sum( inv1.ItemPrices ), similarly for inv2
-                        double invoice1Total = inv1.ItemPrices.Sum();
-                        double invoice2Total = inv2.ItemPrices.Sum();
-                        double paymentAmount = invoice1Total + invoice2Total;
+                        // The Payment's "CompanyID" = 200 + payment index
+                        int paymentCompanyID = 200 + i;
 
-                        // Because each invoice belongs to a single customer, we can assume
-                        // both invoices are for the same customer.
-                        // We'll pay them in full.
-                        string paymentTxnID = AddReceivePayment(
+                        // Payment date = Today + payment index days
+                        DateTime paymentDate = DateTime.Now.Date.AddDays(i);
+
+                        // Create the payment covering all invoices for this customer
+                        string paymentTxnID = AddReceivePaymentMultipleInvoices(
                             qbSession,
-                            inv1.CustomerName,  
-                            inv1.TxnID,
-                            inv2.TxnID,
+                            customerName,
+                            invoicesToPay,
                             paymentCompanyID,
                             paymentDate,
-                            paymentAmount
+                            totalPaymentAmount
                         );
 
                         createdPaymentTxnIDs.Add(paymentTxnID);
 
-                        // Save Payment test data
+                        // Store Payment test data
                         paymentData.Add(new PaymentTestInfo
                         {
                             TxnID = paymentTxnID,
                             CompanyID = paymentCompanyID,
-                            CustomerName = inv1.CustomerName, // assume both are same customer
+                            CustomerName = customerName,
                             PaymentDate = paymentDate,
-                            InvoiceTxnIDs = new List<string> { inv1.TxnID, inv2.TxnID }
+                            InvoiceTxnIDs = invoicesToPay
                         });
                     }
                 }
 
-                // 6) Query: check the newly created payments
-                //    We'll assume you have PaymentReader.QueryAllPayments().
+                // 6) Query: check all created payments
                 var allPayments = PaymentReader.QueryAllPayments();
 
-                // For each test Payment, confirm it’s present & correct in the query results
-                foreach (var pd in paymentData)
+                // Verify each payment
+                foreach (var expectedPayment in paymentData)
                 {
-                    var match = allPayments.FirstOrDefault(x => x.TxnID == pd.TxnID);
+                    var match = allPayments.FirstOrDefault(x => x.TxnID == expectedPayment.TxnID);
                     Assert.NotNull(match);
 
                     // Check fields
-                    Assert.Equal(pd.CompanyID, match.CompanyID);       // from Memo
-                    Assert.Equal(pd.CustomerName, match.CustomerName);
-                    Assert.Equal(pd.PaymentDate.Date, match.PaymentDate.Date);
+                    Assert.Equal(expectedPayment.CompanyID, match.CompanyID);    // from Memo
+                    Assert.Equal(expectedPayment.CustomerName, match.CustomerName);
+                    Assert.Equal(expectedPayment.PaymentDate.Date, match.PaymentDate.Date);
 
                     // Check the invoices paid
-                    // We expect exactly 2 invoices paid
-                    Assert.Equal(2, match.InvoicesPaid.Count);
-                    // Each is paid in full
-                    foreach (var invoiceTxnID in pd.InvoiceTxnIDs)
+                    foreach (var invoiceTxnID in expectedPayment.InvoiceTxnIDs)
                     {
                         Assert.Contains(invoiceTxnID, match.InvoicesPaid);
                     }
@@ -200,43 +191,68 @@ namespace QB_Payments_Test
             finally
             {
                 // 7) CLEANUP: we remove payments first, then invoices, then items, then customers
-                using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
-                {
-                    foreach (var payID in createdPaymentTxnIDs)
-                    {
-                        DeletePayment(qbSession, payID);
-                    }
-                }
+                // Delete payments
+                //foreach (var paymentTxnID in createdPaymentTxnIDs)
+                //{
+                //    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                //    {
+                //        DeletePayment(qbSession, paymentTxnID);
+                //    }
+                //}
 
-                using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
-                {
-                    foreach (var invID in createdInvoiceTxnIDs)
-                    {
-                        DeleteInvoice(qbSession, invID);
-                    }
-                }
+                //// Delete invoices
+                //foreach (var invoiceTxnID in createdInvoiceTxnIDs)
+                //{
+                //    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                //    {
+                //        DeleteInvoice(qbSession, invoiceTxnID);
+                //    }
+                //}
 
-                using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
-                {
-                    foreach (var itemID in createdItemListIDs)
-                    {
-                        DeleteListObject(qbSession, itemID, ENListDelType.ldtItemInventory);
-                    }
-                }
+                //// Delete items
+                //foreach (var itemListID in createdItemListIDs)
+                //{
+                //    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                //    {
+                //        DeleteListObject(qbSession, itemListID, ENListDelType.ldtItemInventory);
+                //    }
+                //}
 
-                using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
-                {
-                    foreach (var custID in createdCustomerListIDs)
-                    {
-                        DeleteListObject(qbSession, custID, ENListDelType.ldtCustomer);
-                    }
-                }
+                //// Delete customers
+                //foreach (var customerListID in createdCustomerListIDs)
+                //{
+                //    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                //    {
+                //        DeleteListObject(qbSession, customerListID, ENListDelType.ldtCustomer);
+                //    }
+                //}
             }
         }
 
-        //------------------------------------------------------------------------------
-        // CREATORS
-        //------------------------------------------------------------------------------
+
+        private double GetInvoiceAmountDue(QuickBooksSession qbSession, string invoiceTxnID)
+        {
+            IMsgSetRequest request = qbSession.CreateRequestSet();
+            var invoiceQuery = request.AppendInvoiceQueryRq();
+            invoiceQuery.ORInvoiceQuery.TxnIDList.Add(invoiceTxnID);
+
+            var resp = qbSession.SendRequest(request);
+            var list = resp.ResponseList;
+            if (list == null || list.Count == 0)
+                throw new Exception($"No response from InvoiceQuery for TxnID: {invoiceTxnID}");
+
+            var r = list.GetAt(0);
+            if (r.StatusCode != 0)
+                throw new Exception($"InvoiceQuery failed: {r.StatusMessage}");
+
+            var invoiceRetList = r.Detail as IInvoiceRetList;
+            if (invoiceRetList == null || invoiceRetList.Count == 0)
+                throw new Exception($"No IInvoiceRet returned for TxnID: {invoiceTxnID}");
+
+            var invoiceRet = invoiceRetList.GetAt(0);
+            return invoiceRet.BalanceRemaining.GetValue();
+        }
+
 
         private string AddCustomer(QuickBooksSession qbSession, string customerName)
         {
@@ -267,7 +283,7 @@ namespace QB_Payments_Test
 
         /// <summary>
         /// Creates an invoice with **2 line items**.
-        /// Each line uses the specified item name/price. We store a “company ID” in Memo.
+        /// Each line uses the specified item name/price. We store a "company ID" in Memo.
         /// Returns the new Invoice TxnID.
         /// </summary>
         private string AddInvoiceWithTwoLines(
@@ -286,7 +302,7 @@ namespace QB_Payments_Test
             invAdd.RefNumber.SetValue("Inv_" + Guid.NewGuid().ToString("N").Substring(0, 5));
 
             // Store "CompanyID" in the Memo
-            invAdd.Memo.SetValue(companyID);
+            invAdd.Memo.SetValue(companyID.ToString());
             invAdd.TxnDate.SetValue(DateTime.Today);
 
             // 1st line
@@ -309,16 +325,60 @@ namespace QB_Payments_Test
         /// <summary>
         /// Creates a single ReceivePayment record that:
         ///   - references a single customer
-        ///   - references 2 invoice TxnIDs
-        ///   - pays each invoice in full
-        ///   - uses the “XXX” in memo
-        /// Returns the Payment’s TxnID.
+        ///   - references a single invoice TxnID
+        ///   - pays the invoice in full
+        ///   - uses the companyID in memo
+        /// Returns the Payment's TxnID.
         /// </summary>
         private string AddReceivePayment(
             QuickBooksSession qbSession,
             string customerName,   // or you could do CustomerRef.ListID if needed
-            string invoiceTxnID1,
-            string invoiceTxnID2,
+            string invoiceTxnID,
+            int companyID,
+            DateTime paymentDate,
+            double totalPaymentAmount
+        )
+        {
+            // Retrieve the amount due for the invoice
+            double amountDue = GetInvoiceAmountDue(qbSession, invoiceTxnID);
+
+            IMsgSetRequest request = qbSession.CreateRequestSet();
+            var paymentRq = request.AppendReceivePaymentAddRq();
+
+            // We can reference the customer by FullName or ListID
+            paymentRq.CustomerRef.FullName.SetValue(customerName);
+
+            // Payment date
+            paymentRq.TxnDate.SetValue(paymentDate);
+
+            // Memo includes our "CompanyID"
+            paymentRq.Memo.SetValue(companyID.ToString());
+
+            // The total payment amount:
+            paymentRq.TotalAmount.SetValue(Math.Min(totalPaymentAmount, amountDue));
+
+            // The invoice to pay in full
+            var applied = paymentRq.ORApplyPayment.AppliedToTxnAddList.Append();
+            applied.TxnID.SetValue(invoiceTxnID);
+            applied.PaymentAmount.SetValue(Math.Min(totalPaymentAmount, amountDue));
+
+            // Send
+            var resp = qbSession.SendRequest(request);
+            return ExtractPaymentTxnID(resp);
+        }
+
+        /// <summary>
+        /// Creates a single ReceivePayment record that:
+        ///   - references a single customer
+        ///   - references multiple invoice TxnIDs
+        ///   - pays each invoice in full
+        ///   - uses the companyID in memo
+        /// Returns the Payment's TxnID.
+        /// </summary>
+        private string AddReceivePaymentMultipleInvoices(
+            QuickBooksSession qbSession,
+            string customerName,
+            List<string> invoiceTxnIDs,
             int companyID,
             DateTime paymentDate,
             double totalPaymentAmount
@@ -334,22 +394,45 @@ namespace QB_Payments_Test
             paymentRq.TxnDate.SetValue(paymentDate);
 
             // Memo includes our "CompanyID"
-            paymentRq.Memo.SetValue(companyID);
+            paymentRq.Memo.SetValue(companyID.ToString());
 
-            // The total payment amount:
-            paymentRq.TotalAmount.SetValue(totalPaymentAmount);
+            // Calculate the total payment amount by summing invoice amounts due
+            double totalAmountDue = 0;
+            Dictionary<string, double> invoiceAmountsDue = new Dictionary<string, double>();
 
-            // The 1st invoice to pay in full
-            var applied1 = paymentRq.AppliedToTxnAddList.Append();
-            applied1.TxnID.SetValue(invoiceTxnID1);
-            applied1.PaymentAmount.SetValue(GetInvoiceTotalFor(invoiceTxnID1));
-            // For a real test, you might pass in the invoice total. 
-            // Or store it in an object and look it up. We'll assume you have a helper.
+            foreach (var invoiceTxnID in invoiceTxnIDs)
+            {
+                double amountDue = GetInvoiceAmountDue(qbSession, invoiceTxnID);
+                invoiceAmountsDue[invoiceTxnID] = amountDue;
+                totalAmountDue += amountDue;
+            }
 
-            // The 2nd invoice to pay in full
-            var applied2 = paymentRq.AppliedToTxnAddList.Append();
-            applied2.TxnID.SetValue(invoiceTxnID2);
-            applied2.PaymentAmount.SetValue(GetInvoiceTotalFor(invoiceTxnID2));
+            // The total payment amount (limited by the provided amount)
+            double actualPaymentAmount = Math.Min(totalPaymentAmount, totalAmountDue);
+            paymentRq.TotalAmount.SetValue(actualPaymentAmount);
+
+            // If we can't pay all invoices in full, we'll need to allocate the payment
+            double remainingPayment = actualPaymentAmount;
+
+            // Apply payment to each invoice
+            foreach (var invoiceTxnID in invoiceTxnIDs)
+            {
+                double amountDue = invoiceAmountsDue[invoiceTxnID];
+                double paymentForThisInvoice = Math.Min(remainingPayment, amountDue);
+
+                if (paymentForThisInvoice > 0)
+                {
+                    var applied = paymentRq.ORApplyPayment.AppliedToTxnAddList.Append();
+                    applied.TxnID.SetValue(invoiceTxnID);
+                    applied.PaymentAmount.SetValue(paymentForThisInvoice);
+
+                    remainingPayment -= paymentForThisInvoice;
+                }
+
+                // If we've used up all the payment amount, stop applying
+                if (remainingPayment <= 0)
+                    break;
+            }
 
             // Send
             var resp = qbSession.SendRequest(request);
@@ -396,19 +479,6 @@ namespace QB_Payments_Test
         //------------------------------------------------------------------------------
         // READERS / EXTRACTORS
         //------------------------------------------------------------------------------
-
-        // For your real code, adapt as needed. 
-        // In real usage, you might store invoice totals in a dictionary. 
-        // Or you might have a method that queries QuickBooks for the invoice. 
-        // Here, we just do a placeholder returning a fixed amount:
-        private double GetInvoiceTotalFor(string invoiceTxnID)
-        {
-            // This is a simplified placeholder. 
-            // If each invoice has 2 items, each with quantity=2, and itemPrice ~10-20,
-            // total might be somewhere ~40-80. 
-            // Alternatively, you might pass that total in from outside.
-            return 50.0;
-        }
 
         private string ExtractCustomerListID(IMsgSetResponse resp)
         {
