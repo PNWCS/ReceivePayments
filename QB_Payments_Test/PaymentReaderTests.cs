@@ -190,42 +190,42 @@ namespace QB_Payments_Test
             }
             finally
             {
-                // 7) CLEANUP: we remove payments first, then invoices, then items, then customers
-                // Delete payments
-                //foreach (var paymentTxnID in createdPaymentTxnIDs)
-                //{
-                //    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
-                //    {
-                //        DeletePayment(qbSession, paymentTxnID);
-                //    }
-                //}
+                //7) CLEANUP: we remove payments first, then invoices, then items, then customers
+                //Delete payments
+                foreach (var paymentTxnID in createdPaymentTxnIDs)
+                {
+                    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                    {
+                        DeletePayment(qbSession, paymentTxnID);
+                    }
+                }
 
-                //// Delete invoices
-                //foreach (var invoiceTxnID in createdInvoiceTxnIDs)
-                //{
-                //    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
-                //    {
-                //        DeleteInvoice(qbSession, invoiceTxnID);
-                //    }
-                //}
+                // Delete invoices
+                foreach (var invoiceTxnID in createdInvoiceTxnIDs)
+                {
+                    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                    {
+                        DeleteInvoice(qbSession, invoiceTxnID);
+                    }
+                }
 
-                //// Delete items
-                //foreach (var itemListID in createdItemListIDs)
-                //{
-                //    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
-                //    {
-                //        DeleteListObject(qbSession, itemListID, ENListDelType.ldtItemInventory);
-                //    }
-                //}
+                // Delete items
+                foreach (var itemListID in createdItemListIDs)
+                {
+                    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                    {
+                        DeleteListObject(qbSession, itemListID, ENListDelType.ldtItemInventory);
+                    }
+                }
 
-                //// Delete customers
-                //foreach (var customerListID in createdCustomerListIDs)
-                //{
-                //    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
-                //    {
-                //        DeleteListObject(qbSession, customerListID, ENListDelType.ldtCustomer);
-                //    }
-                //}
+                // Delete customers
+                foreach (var customerListID in createdCustomerListIDs)
+                {
+                    using (var qbSession = new QuickBooksSession(AppConfig.QB_APP_NAME))
+                    {
+                        DeleteListObject(qbSession, customerListID, ENListDelType.ldtCustomer);
+                    }
+                }
             }
         }
 
