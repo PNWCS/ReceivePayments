@@ -1,5 +1,4 @@
 // QB_Payments_Test/PaymentAdderTests.cs
-using System.Diagnostics;
 using QB_Payments_Lib;          // Payment model + PaymentAdder
 using QBFC16Lib;
 using static QB_Payments_Test.CommonMethods;
@@ -152,7 +151,6 @@ namespace QB_Payments_Test
             //-----------------------------------------------------------------
             foreach (var p in paymentsToAdd)
             {
-                Debug.WriteLine(p.TxnID);
                 // 7‑A: TxnID must be set
                 Assert.False(string.IsNullOrWhiteSpace(p.TxnID),
                     $"Payment for CompanyID={p.CompanyID} did not get a TxnID.");
