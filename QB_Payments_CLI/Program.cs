@@ -1,5 +1,4 @@
-﻿using QB_Payments_CLI;
-using QB_Payments_Lib;
+﻿using QB_Payments_Lib;
 
 class Program
 {

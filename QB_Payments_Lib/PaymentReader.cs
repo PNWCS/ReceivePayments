@@ -3,7 +3,7 @@ using Serilog;
 
 namespace QB_Payments_Lib
 {
- 
+
 
     public class PaymentReader
     {
@@ -58,7 +58,7 @@ namespace QB_Payments_Lib
             return payments;
         }
 
-       
+
 
         static void BuildReceivePaymentQueryRq(IMsgSetRequest requestMsgSet)
         {

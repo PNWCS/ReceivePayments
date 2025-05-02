@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace QB_Payments_Lib
+﻿namespace QB_Payments_Lib
 {
     public class PaymentComparator
     {
@@ -37,7 +34,7 @@ namespace QB_Payments_Lib
                     Console.WriteLine($"Marked as Unchanged: Customer: {hardcodedPayment.CustomerName}, Amount: {hardcodedPayment.Amount}");
 
                     // Step 3: Find invoices for the customer and pay them
-                    
+
                 }
             }
 

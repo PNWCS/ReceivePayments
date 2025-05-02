@@ -1,6 +1,4 @@
 ﻿using QBFC16Lib;
-using System;
-using System.Collections.Generic;
 
 namespace QB_Payments_Lib
 {
