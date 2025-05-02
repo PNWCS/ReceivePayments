@@ -3,6 +3,8 @@ using Serilog;
 
 namespace QB_Payments_Lib
 {
+ 
+
     public class PaymentReader
     {
         public static List<Payment> QueryAllPayments()
@@ -56,6 +58,8 @@ namespace QB_Payments_Lib
             return payments;
         }
 
+       
+
         static void BuildReceivePaymentQueryRq(IMsgSetRequest requestMsgSet)
         {
             IReceivePaymentQuery ReceivePaymentQueryRq = requestMsgSet.AppendReceivePaymentQueryRq();
@@ -87,7 +91,6 @@ namespace QB_Payments_Lib
 
             return payments;
         }
-
 
         static List<Payment> WalkReceivePaymentRet(IReceivePaymentRetList ReceivePaymentRet)
         {
@@ -127,14 +130,14 @@ namespace QB_Payments_Lib
                     }
                 }
 
-                if (paymentRet.AppliedToTxnRetList == null)
-                {
-                    Console.WriteLine("AppliedToTxnRetList is null");
-                }
-                else if (paymentRet.AppliedToTxnRetList.Count == 0)
-                {
-                    Console.WriteLine("AppliedToTxnRetList is empty");
-                }
+                //if (paymentRet.AppliedToTxnRetList == null)
+                //{
+                //    Console.WriteLine("AppliedToTxnRetList is null");
+                //}
+                //else if (paymentRet.AppliedToTxnRetList.Count == 0)
+                //{
+                //    Console.WriteLine("AppliedToTxnRetList is empty");
+                //}
 
                 // Extract InvoiceTxnIDs
                 if (paymentRet.AppliedToTxnRetList != null)
@@ -142,31 +145,52 @@ namespace QB_Payments_Lib
                     for (int j = 0; j < paymentRet.AppliedToTxnRetList.Count; j++)
                     {
                         IAppliedToTxnRet appliedToTxnRet = paymentRet.AppliedToTxnRetList.GetAt(j);
-                        Console.WriteLine($"AppliedToTxnRet: {appliedToTxnRet.TxnID.GetValue()}");
                         if (appliedToTxnRet.TxnID != null)
                         {
-                            Console.WriteLine("Customer ");
-
-
                             payment.InvoicesPaid.Add(appliedToTxnRet.TxnID.GetValue());
                         }
                     }
                 }
-
-                // Log payment details to console
-                Console.WriteLine($"Customer Name: {payment.CustomerName}");
-                Console.WriteLine($"Transaction Date: {payment.PaymentDate}");
-                Console.WriteLine($"Transaction ID: {payment.TxnID}");
-                Console.WriteLine($"Company ID: {payment.CompanyID}");
-                Console.WriteLine("Invoice Transaction IDs: " + string.Join(", ", payment.InvoicesPaid));
-                Console.WriteLine("--------------------------------------------------");
 
                 payments.Add(payment);
             }
 
             return payments;
         }
+    }
 
+    /// <summary>
+    /// Represents a session with QuickBooks.
+    /// </summary>
+    public class QuickBooksSession : IDisposable
+    {
+        private QBSessionManager _sessionManager;
 
+        public QuickBooksSession(string appName)
+        {
+            _sessionManager = new QBSessionManager();
+            _sessionManager.OpenConnection("", appName);
+            _sessionManager.BeginSession("", ENOpenMode.omDontCare);
+        }
+
+        public IMsgSetRequest CreateRequestSet()
+        {
+            return _sessionManager.CreateMsgSetRequest("US", 16, 0);
+        }
+
+        public IMsgSetResponse SendRequest(IMsgSetRequest request)
+        {
+            return _sessionManager.DoRequests(request);
+        }
+
+        public void Dispose()
+        {
+            if (_sessionManager != null)
+            {
+                _sessionManager.EndSession();
+                _sessionManager.CloseConnection();
+                _sessionManager = null;
+            }
+        }
     }
 }

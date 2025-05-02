@@ -1,5 +1,6 @@
-﻿using System.Diagnostics;
-using QBFC16Lib;
+﻿using QBFC16Lib;
+using System;
+using System.Collections.Generic;
 
 namespace QB_Payments_Lib
 {
@@ -10,7 +11,6 @@ namespace QB_Payments_Lib
             bool sessionBegun = false;
             bool connectionOpen = false;
             QBSessionManager sessionManager = null;
-            var paymentQueue = new Queue<Payment>(payments); // Track payments for response mapping
 
             try
             {
@@ -61,20 +61,17 @@ namespace QB_Payments_Lib
         {
             IReceivePaymentAdd ReceivePaymentAddRq = requestMsgSet.AppendReceivePaymentAddRq();
             ReceivePaymentAddRq.CustomerRef.FullName.SetValue(payment.CustomerName);
-            decimal totalAmount = 0;
+            ReceivePaymentAddRq.TxnDate.SetValue(payment.PaymentDate);
+            ReceivePaymentAddRq.TotalAmount.SetValue((double)payment.Amount);
+
+            // Apply payment to specified invoices
             foreach (var invoiceTxnID in payment.InvoicesPaid)
             {
-                IAppliedToTxnAdd appliedToTxnAdd = ReceivePaymentAddRq.ORApplyPayment.AppliedToTxnAddList.Append();
+                var appliedToTxnAdd = ReceivePaymentAddRq.ORApplyPayment.AppliedToTxnAddList.Append();
                 appliedToTxnAdd.TxnID.SetValue(invoiceTxnID);
-
-                totalAmount += payment.Amount;
-
-                // Debugging information
+                appliedToTxnAdd.PaymentAmount.SetValue((double)payment.Amount); // Apply full payment amount
                 Console.WriteLine($"Applying payment to invoice TxnID: {invoiceTxnID} with amount: {payment.Amount}");
             }
-            ReceivePaymentAddRq.TotalAmount.SetValue((double)totalAmount);
-
-
         }
 
         private static void HandleAddPaymentResponse(IMsgSetResponse responseMsgSet, List<Payment> payments)
@@ -85,10 +82,9 @@ namespace QB_Payments_Lib
 
             for (int i = 0; i < responseList.Count; i++)
             {
-                Debug.WriteLine(payments[i].TxnID);
                 IResponse response = responseList.GetAt(i);
-                Debug.WriteLine($"Response Status Code: {response.StatusCode}");
-                Debug.WriteLine($"Response Status Message: {response.StatusMessage}");
+                Console.WriteLine($"Response Status Code: {response.StatusCode}");
+                Console.WriteLine($"Response Status Message: {response.StatusMessage}");
 
                 if (response.StatusCode >= 0 && response.Detail != null)
                 {
@@ -96,13 +92,8 @@ namespace QB_Payments_Lib
                     if (responseType == ENResponseType.rtReceivePaymentAddRs)
                     {
                         IReceivePaymentRet receivePaymentRet = (IReceivePaymentRet)response.Detail;
-
-                        {
-
-                            payments[i].TxnID = receivePaymentRet.TxnID.GetValue();
-
-                            Debug.WriteLine($"Payment added successfully with TxnID: {receivePaymentRet.TxnID.GetValue()}");
-                        }
+                        payments[i].TxnID = receivePaymentRet.TxnID.GetValue();
+                        Console.WriteLine($"Payment added successfully with TxnID: {receivePaymentRet.TxnID.GetValue()}");
                     }
                 }
                 else
