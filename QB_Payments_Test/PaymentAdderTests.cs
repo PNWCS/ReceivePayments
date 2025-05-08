@@ -17,12 +17,12 @@ namespace QB_Payments_Test
         // ------------------------------------------------------------------
         // CONFIGURATION
         // ------------------------------------------------------------------
-        private const int CUSTOMER_COUNT         = 3;  // customers to create
-        private const int ITEMS_PER_CUSTOMER     = 2;  // inventory items per customer
-        private const int INVOICES_PER_CUSTOMER  = 2;  // each customer gets 2 invoices
-        private const string SALES_ACCOUNT       = "Sales";
-        private const string INVENTORY_ACCOUNT   = "Inventory Asset";
-        private const string COGS_ACCOUNT        = "Cost of Goods Sold";
+        private const int CUSTOMER_COUNT = 3;  // customers to create
+        private const int ITEMS_PER_CUSTOMER = 2;  // inventory items per customer
+        private const int INVOICES_PER_CUSTOMER = 2;  // each customer gets 2 invoices
+        private const string SALES_ACCOUNT = "Sales";
+        private const string INVENTORY_ACCOUNT = "Inventory Asset";
+        private const string COGS_ACCOUNT = "Cost of Goods Sold";
 
         // ------------------------------------------------------------------
         // MAIN TEST
@@ -34,12 +34,12 @@ namespace QB_Payments_Test
             // Tracking collections so we can assert and (optionally) clean up
             //-----------------------------------------------------------------
             var createdCustomerListIDs = new List<string>();
-            var createdItemListIDs     = new List<string>();
-            var createdInvoiceTxnIDs   = new List<string>();
-            var addedPaymentTxnIDs     = new List<string>();
+            var createdItemListIDs = new List<string>();
+            var createdInvoiceTxnIDs = new List<string>();
+            var addedPaymentTxnIDs = new List<string>();
 
-            var randomCustomerNames    = new List<string>();
-            var invoiceInfo            = new List<InvoiceInfo>();   // used to build payments
+            var randomCustomerNames = new List<string>();
+            var invoiceInfo = new List<InvoiceInfo>();   // used to build payments
 
             //-----------------------------------------------------------------
             // STEP 1 – log cleanup
@@ -55,7 +55,7 @@ namespace QB_Payments_Test
             {
                 using var qb = new QuickBooksSession(AppConfig.QB_APP_NAME);
 
-                string custName  = "Cust_" + Guid.NewGuid().ToString("N")[..6];
+                string custName = "Cust_" + Guid.NewGuid().ToString("N")[..6];
                 string custListID = AddCustomer(qb, custName);
 
                 randomCustomerNames.Add(custName);
@@ -69,8 +69,8 @@ namespace QB_Payments_Test
             {
                 using var qb = new QuickBooksSession(AppConfig.QB_APP_NAME);
 
-                string itemName  = "Item_" + Guid.NewGuid().ToString("N")[..6];
-                double price     = 10.0 + i;      // just something distinct
+                string itemName = "Item_" + Guid.NewGuid().ToString("N")[..6];
+                double price = 10.0 + i;      // just something distinct
                 string itemListID = AddInventoryItem(qb, itemName, price);
 
                 createdItemListIDs.Add(itemListID);
@@ -90,9 +90,9 @@ namespace QB_Payments_Test
                     string itemListID1 = createdItemListIDs[itemBase];
                     string itemListID2 = createdItemListIDs[(itemBase + 1) % createdItemListIDs.Count];
 
-                    string custListID  = createdCustomerListIDs[cust];
-                    string custName    = randomCustomerNames[cust];
-                    int companyID      = 1000 + cust * 10 + inv;
+                    string custListID = createdCustomerListIDs[cust];
+                    string custName = randomCustomerNames[cust];
+                    int companyID = 1000 + cust * 10 + inv;
 
                     string invoiceTxnID = AddInvoiceWithTwoLines(
                         qb,
@@ -106,7 +106,7 @@ namespace QB_Payments_Test
                     invoiceInfo.Add(new InvoiceInfo
                     {
                         CustomerName = custName,
-                        TxnID        = invoiceTxnID
+                        TxnID = invoiceTxnID
                     });
                 }
             }
@@ -136,11 +136,11 @@ namespace QB_Payments_Test
 
                 paymentsToAdd.Add(new Payment
                 {
-                    CompanyID    = 2000 + paymentsToAdd.Count,
+                    CompanyID = 2000 + paymentsToAdd.Count,
                     CustomerName = custName,
-                    PaymentDate  = DateTime.Today,
+                    PaymentDate = DateTime.Today,
                     InvoicesPaid = custInvoices,
-                    Amount       = (decimal)totalDue         // pay everything in full
+                    Amount = (decimal)totalDue         // pay everything in full
                 });
             }
 
@@ -190,8 +190,8 @@ namespace QB_Payments_Test
 
         private string AddInventoryItem(QuickBooksSession qb, string name, double price)
         {
-            var req  = qb.CreateRequestSet();
-            var add  = req.AppendItemInventoryAddRq();
+            var req = qb.CreateRequestSet();
+            var add = req.AppendItemInventoryAddRq();
             add.Name.SetValue(name);
             add.IncomeAccountRef.FullName.SetValue(SALES_ACCOUNT);
             add.AssetAccountRef.FullName.SetValue(INVENTORY_ACCOUNT);
@@ -208,8 +208,8 @@ namespace QB_Payments_Test
             string itemListID2, string itemName2, double itemPrice2,
             int companyID)
         {
-            var req  = qb.CreateRequestSet();
-            var inv  = req.AppendInvoiceAddRq();
+            var req = qb.CreateRequestSet();
+            var inv = req.AppendInvoiceAddRq();
             inv.CustomerRef.ListID.SetValue(custListID);
             inv.Memo.SetValue(companyID.ToString());
             inv.TxnDate.SetValue(DateTime.Today);
@@ -232,10 +232,10 @@ namespace QB_Payments_Test
         private double GetInvoiceAmountDue(QuickBooksSession qb, string invoiceTxnID)
         {
             var req = qb.CreateRequestSet();
-            var q   = req.AppendInvoiceQueryRq();
+            var q = req.AppendInvoiceQueryRq();
             q.ORInvoiceQuery.TxnIDList.Add(invoiceTxnID);
             var resp = qb.SendRequest(req);
-            var ret  = ((IInvoiceRetList)resp.ResponseList.GetAt(0).Detail).GetAt(0);
+            var ret = ((IInvoiceRetList)resp.ResponseList.GetAt(0).Detail).GetAt(0);
             return ret.BalanceRemaining.GetValue();
         }
 
@@ -246,8 +246,8 @@ namespace QB_Payments_Test
         {
             using var qb = new QuickBooksSession(AppConfig.QB_APP_NAME);
 
-            var req  = qb.CreateRequestSet();
-            var qry  = req.AppendReceivePaymentQueryRq();
+            var req = qb.CreateRequestSet();
+            var qry = req.AppendReceivePaymentQueryRq();
             qry.ORTxnQuery.TxnIDList.Add(txnID);
 
             var resp = qb.SendRequest(req);
@@ -310,7 +310,7 @@ namespace QB_Payments_Test
         private sealed class InvoiceInfo
         {
             public string CustomerName { get; set; } = "";
-            public string TxnID        { get; set; } = "";
+            public string TxnID { get; set; } = "";
         }
     }
 }
