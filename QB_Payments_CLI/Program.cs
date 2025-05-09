@@ -1,46 +1,29 @@
 ﻿using QB_Payments_Lib;
 
-namespace QB_Payments_ConsoleApp
+class Program
 {
-    class Program
+    static void Main(string[] args)
     {
-        static void Main(string[] args)
+        // Step 1: Define hardcoded payment entries
+        var hardcodedPayments = new List<Payment>
         {
-            string customerName = "cvb1";
-
-
-            // Step 1: Query the specific invoice by customer name and memo
-            Invoice invoiceToPay = InvoiceReader.QueryInvoiceByCustomerNameAndMemo(customerName);
-
-
-
-            if (invoiceToPay != null)
+            new Payment
             {
-                // Step 2: Create a payment for the selected invoice
-                Payment payment = new Payment
-                {
-                    CustomerName = invoiceToPay.CustomerName,
-                    PaymentDate = DateTime.Now,
-                    CompanyID = 123, // Example CompanyID
-                    InvoicesPaid = new List<string> { invoiceToPay.TxnID },
-                    Amount = invoiceToPay.AmountDue // Pay the full amount due
-                };
-
-                // Step 3: Add the payment to QuickBooks
-                PaymentAdder.AddPayments(new List<Payment> { payment });
-
-                // Step 4: Display the details of the paid invoice
-                Console.WriteLine("Paid Invoice:");
-                Console.WriteLine($"Invoice ID: {invoiceToPay.TxnID}");
-                Console.WriteLine($"Customer Name: {invoiceToPay.CustomerName}");
-                Console.WriteLine($"Invoice Date: {invoiceToPay.InvoiceDate}");
-                Console.WriteLine($"Amount Paid: {invoiceToPay.AmountDue}");
-                Console.WriteLine("--------------------------------------------------");
-            }
-            else
+                CustomerName = "ert",
+                PaymentDate = DateTime.Now,
+                Amount = 670.00m,
+                InvoicesPaid = new List<string>()
+            },
+            new Payment
             {
-                Console.WriteLine($"No active invoice found for customer {customerName} with memo .");
-            }
-        }
+                CustomerName = "qqq",
+                PaymentDate = DateTime.Now,
+                Amount = 502.00m,
+                InvoicesPaid = new List<string>()
+            },
+        };
+
+        // Step 2: Synchronize payments
+        PaymentComparator.ComparePayments(hardcodedPayments);
     }
 }

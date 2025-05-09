@@ -1,13 +1,7 @@
 // QB_Payments_Test/PaymentAdderTests.cs
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading;
-using QBFC16Lib;
 using QB_Payments_Lib;          // Payment model + PaymentAdder
+using QBFC16Lib;
 using static QB_Payments_Test.CommonMethods;
-using Xunit;
 
 namespace QB_Payments_Test
 {

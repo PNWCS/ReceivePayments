@@ -65,17 +65,27 @@ namespace QB_Payments_Test
 
         public static string GetLatestLogFile()
         {
-            string logDirectory = "logs";
-            string logPattern = "qb_sync*.log";
+            string logDirectory = Path.Combine(AppContext.BaseDirectory, "logs");
 
-            string[] logFiles = Directory.GetFiles(logDirectory, logPattern, SearchOption.TopDirectoryOnly);
-            if (logFiles.Length == 0)
+            // Ensure the logs directory exists
+            if (!Directory.Exists(logDirectory))
             {
-                throw new FileNotFoundException("No log files found after test run.");
+                Directory.CreateDirectory(logDirectory);
             }
 
-            return logFiles.OrderByDescending(File.GetLastWriteTimeUtc).First();
+            // Get all log files in the directory
+            var logFiles = Directory.GetFiles(logDirectory, "*.log", SearchOption.TopDirectoryOnly);
+
+            if (logFiles.Length == 0)
+            {
+                throw new FileNotFoundException("No log files found after test run. Ensure that the logging system is configured correctly.");
+            }
+
+            // Return the latest log file based on creation time
+            return logFiles.OrderByDescending(File.GetCreationTime).First();
         }
+
+
 
         public static void ResetLogger()
         {
