@@ -9,14 +9,14 @@ class Program
         {
             new Payment
             {
-                CustomerName = "cvf",
+                CustomerName = "ert",
                 PaymentDate = DateTime.Now,
                 Amount = 670.00m,
                 InvoicesPaid = new List<string>()
             },
             new Payment
             {
-                CustomerName = "aaaa",
+                CustomerName = "qqq",
                 PaymentDate = DateTime.Now,
                 Amount = 502.00m,
                 InvoicesPaid = new List<string>()
@@ -24,6 +24,6 @@ class Program
         };
 
         // Step 2: Synchronize payments
-        PaymentComparator.SyncPayments(hardcodedPayments);
+        PaymentComparator.ComparePayments(hardcodedPayments);
     }
 }

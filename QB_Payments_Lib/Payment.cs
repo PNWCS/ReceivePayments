@@ -2,16 +2,21 @@
 {
     public class Payment
     {
-        public string TxnID { get; set; } = "";
+        public string TxnID { get; set; } = string.Empty;
         public int CompanyID { get; set; }
-        public string CustomerName { get; set; } = "";
+        public string CustomerName { get; set; } = string.Empty;
         public DateTime PaymentDate { get; set; }
-        public List<string> InvoicesPaid { get; set; } = new List<string>();
-        public decimal Amount { get; set; } // New field to specify the amount to be paid
-        public PaymentTermStatus Status { get; set; } = PaymentTermStatus.Unknown;
+        public List<string> InvoicesPaid { get; set; } = new();
+        public decimal Amount { get; set; }
+        public PaymentTermStatus Status { get; set; }
 
-
+        // New properties to match the required variables
+        public string InvoiceNumber { get; set; } = string.Empty;
+        public decimal InoviceAmount { get; set; }
+        public decimal BalanceRemaining { get; set; }
+        public DateTime InvoiceDate { get; set; }
     }
+
 }
 
 public enum PaymentTermStatus

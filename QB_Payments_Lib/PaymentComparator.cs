@@ -1,11 +1,18 @@
-﻿namespace QB_Payments_Lib
+﻿using Serilog;
+
+namespace QB_Payments_Lib
 {
     public class PaymentComparator
     {
-        public static void SyncPayments(List<Payment> hardcodedPayments)
+        public static void ComparePayments(List<Payment> hardcodedPayments)
         {
+            Log.Information("PaymentsComparator Initialized");
+            Console.WriteLine("PaymentsComparator Initialized");
+
             // Step 1: Fetch all payments from QuickBooks
             var quickBooksPayments = PaymentReader.QueryAllPayments();
+            Console.WriteLine($"Fetched {quickBooksPayments.Count} payments from QuickBooks.");
+            Log.Information($"Fetched {quickBooksPayments.Count} payments from QuickBooks.");
 
             // Step 2: Compare payments and assign statuses
             foreach (var hardcodedPayment in hardcodedPayments)
@@ -18,27 +25,26 @@
                 {
                     // Payment is missing in QuickBooks
                     hardcodedPayment.Status = PaymentTermStatus.Missing;
-                    PayCustomerInvoices(hardcodedPayment);
-                    Console.WriteLine($"Marked as Missing: Customer: {hardcodedPayment.CustomerName}, Amount: {hardcodedPayment.Amount}");
+                    Console.WriteLine($"Payment Missing: Customer = {hardcodedPayment.CustomerName}, Amount = {hardcodedPayment.Amount}");
+                    Log.Warning($"Payment Missing: Customer = {hardcodedPayment.CustomerName}, Amount = {hardcodedPayment.Amount}");
                 }
                 else if (matchingPayment.Amount != hardcodedPayment.Amount)
                 {
                     // Payment exists but the amount is different
                     hardcodedPayment.Status = PaymentTermStatus.Different;
-                    Console.WriteLine($"Marked as Different: Customer: {hardcodedPayment.CustomerName}, Amount: {hardcodedPayment.Amount}");
+                    Console.WriteLine($"Payment Different: Customer = {hardcodedPayment.CustomerName}, Expected Amount = {hardcodedPayment.Amount}, Actual Amount = {matchingPayment.Amount}");
+                    Log.Warning($"Payment Different: Customer = {hardcodedPayment.CustomerName}, Expected Amount = {hardcodedPayment.Amount}, Actual Amount = {matchingPayment.Amount}");
                 }
                 else
                 {
                     // Payment exists and is unchanged
                     hardcodedPayment.Status = PaymentTermStatus.Unchanged;
-                    Console.WriteLine($"Marked as Unchanged: Customer: {hardcodedPayment.CustomerName}, Amount: {hardcodedPayment.Amount}");
-
-                    // Step 3: Find invoices for the customer and pay them
-
+                    Console.WriteLine($"Payment Unchanged: Customer = {hardcodedPayment.CustomerName}, Amount = {hardcodedPayment.Amount}");
+                    Log.Information($"Payment Unchanged: Customer = {hardcodedPayment.CustomerName}, Amount = {hardcodedPayment.Amount}");
                 }
             }
 
-            // Step 4: Identify payments in QuickBooks but not in the hardcoded list
+            // Step 3: Identify payments in QuickBooks but not in the hardcoded list
             foreach (var quickBooksPayment in quickBooksPayments)
             {
                 var existsInHardcoded = hardcodedPayments.Exists(hc =>
@@ -49,46 +55,22 @@
                 if (!existsInHardcoded)
                 {
                     quickBooksPayment.Status = PaymentTermStatus.Missing;
-                    Console.WriteLine($"Missing in Excel: Customer: {quickBooksPayment.CustomerName}, Amount: {quickBooksPayment.Amount}");
+                    Console.WriteLine($"Payment Missing in Hardcoded List: Customer = {quickBooksPayment.CustomerName}, Amount = {quickBooksPayment.Amount}");
+                    Log.Warning($"Payment Missing in Hardcoded List: Customer = {quickBooksPayment.CustomerName}, Amount = {quickBooksPayment.Amount}");
                 }
             }
 
-            // Step 5: Log the results
+            // Step 4: Log the results
             Console.WriteLine("\nPayment Status Summary:");
+            Log.Information("\nPayment Status Summary:");
             foreach (var payment in hardcodedPayments)
             {
                 Console.WriteLine($"Customer: {payment.CustomerName}, Amount: {payment.Amount}, Status: {payment.Status}");
+                Log.Information($"Customer: {payment.CustomerName}, Amount: {payment.Amount}, Status: {payment.Status}");
             }
-        }
 
-        private static void PayCustomerInvoices(Payment payment)
-        {
-            try
-            {
-                // Step 1: Find invoices for the customer using InvoiceReader
-                var invoice = InvoiceReader.QueryInvoiceByCustomerNameAndMemo(payment.CustomerName);
-
-                if (invoice == null)
-                {
-                    Console.WriteLine($"No invoices found for Customer: {payment.CustomerName}");
-                    return;
-                }
-
-                // Step 2: Create a payment for the invoice
-                payment.InvoicesPaid.Add(invoice.TxnID);
-                payment.Amount = invoice.AmountDue;
-
-                // Step 3: Use PaymentAdder to process the payment
-                Console.WriteLine($"Processing payment for Invoice TxnID: {invoice.TxnID}, Customer: {invoice.CustomerName}, Amount: {invoice.AmountDue}");
-                PaymentAdder.AddPayments(new List<Payment> { payment });
-
-                Console.WriteLine($"Payment successfully processed for Invoice TxnID: {invoice.TxnID}, Customer: {invoice.CustomerName}");
-            }
-            catch (Exception ex)
-            {
-                payment.Status = PaymentTermStatus.FailedToAdd;
-                Console.WriteLine($"Failed to process payment for Customer: {payment.CustomerName}, Error: {ex.Message}");
-            }
+            Log.Information("PaymentsComparator Completed");
+            Console.WriteLine("PaymentsComparator Completed");
         }
     }
 }

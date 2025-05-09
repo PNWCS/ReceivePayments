@@ -5,9 +5,9 @@ namespace QB_Payments_Lib
 {
     public static class InvoiceReader
     {
-        public static Invoice QueryInvoiceByCustomerNameAndMemo(string customerName)
+        public static List<Invoice> QueryAllInvoices(string customerName)
         {
-            Invoice invoice = null;
+            var invoices = new List<Invoice>();
             bool sessionBegun = false;
             bool connectionOpen = false;
             QBSessionManager sessionManager = null;
@@ -38,7 +38,7 @@ namespace QB_Payments_Lib
                 sessionManager.CloseConnection();
                 connectionOpen = false;
 
-                invoice = WalkInvoiceQueryRs(responseMsgSet);
+                invoices = WalkInvoiceQueryRs(responseMsgSet);
             }
             catch (Exception e)
             {
@@ -50,25 +50,26 @@ namespace QB_Payments_Lib
                 {
                     sessionManager.CloseConnection();
                 }
-                Log.Error(e, "Error querying invoice from QuickBooks");
+                Log.Error(e, "Error querying invoices from QuickBooks");
             }
 
-            return invoice;
+            return invoices;
         }
 
         static void BuildInvoiceQueryRq(IMsgSetRequest requestMsgSet, string customerName)
         {
             IInvoiceQuery invoiceQueryRq = requestMsgSet.AppendInvoiceQueryRq();
             invoiceQueryRq.ORInvoiceQuery.InvoiceFilter.EntityFilter.OREntityFilter.FullNameWithChildren.SetValue(customerName);
-            // Removed the line causing the error as IInvoiceFilter does not have a Memo property
             invoiceQueryRq.IncludeLineItems.SetValue(true);
         }
 
-        static Invoice WalkInvoiceQueryRs(IMsgSetResponse responseMsgSet)
+        static List<Invoice> WalkInvoiceQueryRs(IMsgSetResponse responseMsgSet)
         {
-            if (responseMsgSet == null) return null;
+            var invoices = new List<Invoice>();
+
+            if (responseMsgSet == null) return invoices;
             IResponseList responseList = responseMsgSet.ResponseList;
-            if (responseList == null) return null;
+            if (responseList == null) return invoices;
 
             for (int i = 0; i < responseList.Count; i++)
             {
@@ -79,50 +80,67 @@ namespace QB_Payments_Lib
                     if (responseType == ENResponseType.rtInvoiceQueryRs)
                     {
                         IInvoiceRetList invoiceRetList = (IInvoiceRetList)response.Detail;
-                        return WalkInvoiceRet(invoiceRetList);
+                        invoices.AddRange(WalkInvoiceRetList(invoiceRetList));
                     }
                 }
             }
 
-            return null;
+            return invoices;
         }
 
-        static Invoice WalkInvoiceRet(IInvoiceRetList invoiceRetList)
+        static List<Invoice> WalkInvoiceRetList(IInvoiceRetList invoiceRetList)
         {
-            if (invoiceRetList == null || invoiceRetList.Count == 0) return null;
+            var invoices = new List<Invoice>();
 
-            IInvoiceRet invoiceRet = invoiceRetList.GetAt(0);
-            Invoice invoice = new Invoice();
+            if (invoiceRetList == null || invoiceRetList.Count == 0) return invoices;
 
-            if (invoiceRet.CustomerRef != null && invoiceRet.CustomerRef.FullName != null)
+            for (int i = 0; i < invoiceRetList.Count; i++)
             {
-                invoice.CustomerName = invoiceRet.CustomerRef.FullName.GetValue();
+                IInvoiceRet invoiceRet = invoiceRetList.GetAt(i);
+                var invoice = new Invoice();
+
+                if (invoiceRet.CustomerRef != null && invoiceRet.CustomerRef.FullName != null)
+                {
+                    invoice.CustomerName = invoiceRet.CustomerRef.FullName.GetValue();
+                }
+
+                if (invoiceRet.TxnDate != null)
+                {
+                    invoice.InvoiceDate = invoiceRet.TxnDate.GetValue();
+                }
+
+                if (invoiceRet.TxnID != null)
+                {
+                    invoice.TxnID = invoiceRet.TxnID.GetValue();
+                }
+
+                if (invoiceRet.BalanceRemaining != null)
+                {
+                    invoice.InoviceAmount = invoiceRet.BalanceRemaining.GetValue();
+                }
+
+                if (invoiceRet.RefNumber != null)
+                {
+                    invoice.InvoiceNumber = invoiceRet.RefNumber.GetValue();
+                }
+
+                invoices.Add(invoice);
             }
 
-            if (invoiceRet.TxnDate != null)
-            {
-                invoice.InvoiceDate = invoiceRet.TxnDate.GetValue();
-            }
-
-            if (invoiceRet.TxnID != null)
-            {
-                invoice.TxnID = invoiceRet.TxnID.GetValue();
-            }
-
-            if (invoiceRet.BalanceRemaining != null)
-            {
-                invoice.AmountDue = (decimal)invoiceRet.BalanceRemaining.GetValue();
-            }
-
-            return invoice;
+            return invoices;
         }
     }
 
     public class Invoice
     {
-        public string TxnID { get; set; }
-        public string CustomerName { get; set; }
+        public string TxnID { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
         public DateTime InvoiceDate { get; set; }
-        public decimal AmountDue { get; set; }
+        public double InoviceAmount { get; set; }
+
+        // New properties
+        public string InvoiceNumber { get; set; } = string.Empty;
+        public decimal BalanceRemaining { get; set; }
+        public int CompanyID { get; set; }
     }
 }
