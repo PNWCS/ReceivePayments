@@ -1,4 +1,4 @@
-﻿using QB_Payments_Lib; // Reference the library for Customer, CustomerAdder, and InvoiceAdder
+using QB_Payments_Lib; // Reference the library for Customer, CustomerAdder, and InvoiceAdder
 using QBFC16Lib;
 using Serilog;
 using static QB_Payments_Test.CommonMethods;   // EnsureLogFileClosed, ResetLogger, etc.
